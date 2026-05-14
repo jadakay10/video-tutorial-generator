@@ -1,1 +1,276 @@
-<!DOCTYPE html><html><body>placeholder</body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Video Tutorial Generator</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, sans-serif;
+      background: #f5f5f5;
+      color: #1a1a1a;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 24px;
+    }
+
+    h1 { font-size: 1.8rem; margin-bottom: 8px; }
+    .subtitle { color: #666; margin-bottom: 40px; }
+
+    /* Drop zone */
+    #drop-zone {
+      width: 100%;
+      max-width: 560px;
+      border: 2px dashed #bbb;
+      border-radius: 12px;
+      padding: 60px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      background: #fff;
+    }
+    #drop-zone.drag-over { border-color: #4f46e5; background: #eef2ff; }
+    #drop-zone.disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+    #drop-zone p { color: #555; margin-top: 8px; font-size: 0.9rem; }
+    #file-input { display: none; }
+
+    .drop-icon { font-size: 2.5rem; }
+
+    /* Error */
+    #error-msg {
+      display: none;
+      margin-top: 12px;
+      color: #dc2626;
+      font-size: 0.9rem;
+    }
+
+    /* Progress */
+    #progress-section {
+      display: none;
+      width: 100%;
+      max-width: 560px;
+      margin-top: 32px;
+      background: #fff;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+
+    .progress-bar-track {
+      width: 100%;
+      height: 8px;
+      background: #e5e7eb;
+      border-radius: 99px;
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: #4f46e5;
+      border-radius: 99px;
+      transition: width 0.4s ease;
+    }
+
+    .steps { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+    .step { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; color: #888; }
+    .step.active { color: #4f46e5; font-weight: 600; }
+    .step.done { color: #16a34a; }
+    .step-icon { width: 20px; text-align: center; }
+
+    /* Result */
+    #result-section {
+      display: none;
+      width: 100%;
+      max-width: 760px;
+      margin-top: 32px;
+      background: #fff;
+      border-radius: 12px;
+      padding: 32px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+
+    #result-section h2 { margin-bottom: 16px; font-size: 1.2rem; }
+
+    #download-btn {
+      display: inline-block;
+      margin-bottom: 24px;
+      padding: 8px 20px;
+      background: #4f46e5;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      text-decoration: none;
+    }
+    #download-btn:hover { background: #4338ca; }
+
+    #tutorial-output {
+      line-height: 1.7;
+      color: #1a1a1a;
+    }
+    #tutorial-output h1, #tutorial-output h2, #tutorial-output h3 {
+      margin: 1.2em 0 0.4em;
+    }
+    #tutorial-output p { margin-bottom: 0.8em; }
+    #tutorial-output ul, #tutorial-output ol {
+      margin: 0.4em 0 0.8em 1.4em;
+    }
+    #tutorial-output code {
+      background: #f3f4f6;
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 0.88em;
+    }
+    #tutorial-output pre code {
+      display: block;
+      padding: 12px;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>Video Tutorial Generator</h1>
+  <p class="subtitle">Drop an .mp4 to generate a step-by-step written tutorial</p>
+
+  <div id="drop-zone">
+    <div class="drop-icon">🎬</div>
+    <strong>Drop your .mp4 here</strong>
+    <p>or click to choose a file</p>
+    <input type="file" id="file-input" accept=".mp4" />
+  </div>
+  <div id="error-msg"></div>
+
+  <div id="progress-section">
+    <div class="progress-bar-track">
+      <div class="progress-bar-fill" id="progress-fill"></div>
+    </div>
+    <ul class="steps" id="step-list">
+      <li class="step" data-step="1"><span class="step-icon">○</span> Extracting audio</li>
+      <li class="step" data-step="2"><span class="step-icon">○</span> Extracting frames</li>
+      <li class="step" data-step="3"><span class="step-icon">○</span> Transcribing with Whisper</li>
+      <li class="step" data-step="4"><span class="step-icon">○</span> Encoding frames</li>
+      <li class="step" data-step="5"><span class="step-icon">○</span> Generating tutorial with Claude</li>
+    </ul>
+  </div>
+
+  <div id="result-section">
+    <h2>Your Tutorial</h2>
+    <a id="download-btn" download>⬇ Download .md</a>
+    <div id="tutorial-output"></div>
+  </div>
+
+  <script>
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const errorMsg = document.getElementById('error-msg');
+    const progressSection = document.getElementById('progress-section');
+    const progressFill = document.getElementById('progress-fill');
+    const resultSection = document.getElementById('result-section');
+    const downloadBtn = document.getElementById('download-btn');
+    const tutorialOutput = document.getElementById('tutorial-output');
+
+    function showError(msg) {
+      errorMsg.textContent = msg;
+      errorMsg.style.display = 'block';
+    }
+    function clearError() {
+      errorMsg.style.display = 'none';
+    }
+    function setStepState(stepNum, state) {
+      const el = document.querySelector(`.step[data-step="${stepNum}"]`);
+      if (!el) return;
+      el.className = 'step ' + state;
+      el.querySelector('.step-icon').textContent =
+        state === 'done' ? '✓' : state === 'active' ? '▶' : '○';
+    }
+    function setProgress(stepNum) {
+      progressFill.style.width = (stepNum / 5 * 100) + '%';
+      for (let i = 1; i <= 5; i++) {
+        if (i < stepNum) setStepState(i, 'done');
+        else if (i === stepNum) setStepState(i, 'active');
+        else setStepState(i, '');
+      }
+    }
+
+    function startUpload(file) {
+      clearError();
+      if (!file.name.toLowerCase().endsWith('.mp4')) {
+        showError('Only .mp4 files are supported.');
+        return;
+      }
+
+      dropZone.classList.add('disabled');
+      progressSection.style.display = 'block';
+      resultSection.style.display = 'none';
+      setProgress(1);
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      fetch('/upload', { method: 'POST', body: formData })
+        .then(r => r.json())
+        .then(data => {
+          if (data.error) { handleError(data.error); return; }
+          listenForProgress(data.job_id, file.name.replace('.mp4', ''));
+        })
+        .catch(err => handleError(err.message));
+    }
+
+    function listenForProgress(jobId, filename) {
+      const es = new EventSource('/progress/' + jobId);
+      es.onmessage = (e) => {
+        const event = JSON.parse(e.data);
+        if (event.step) {
+          setProgress(event.step);
+        } else if (event.done) {
+          es.close();
+          for (let i = 1; i <= 5; i++) setStepState(i, 'done');
+          progressFill.style.width = '100%';
+          showResult(event.markdown, filename);
+          dropZone.classList.remove('disabled');
+        } else if (event.error) {
+          es.close();
+          handleError(event.error);
+        }
+      };
+      es.onerror = () => { es.close(); handleError('Connection lost. Please try again.'); };
+    }
+
+    function showResult(markdown, filename) {
+      tutorialOutput.innerHTML = marked.parse(markdown);
+      const blob = new Blob([markdown], { type: 'text/markdown' });
+      downloadBtn.href = URL.createObjectURL(blob);
+      downloadBtn.download = filename + '.md';
+      resultSection.style.display = 'block';
+      resultSection.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function handleError(msg) {
+      progressSection.style.display = 'none';
+      dropZone.classList.remove('disabled');
+      showError('Error: ' + msg);
+    }
+
+    // Drag and drop
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      if (file) startUpload(file);
+    });
+    dropZone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files[0]) startUpload(fileInput.files[0]);
+    });
+  </script>
+</body>
+</html>
