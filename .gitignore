@@ -25,6 +25,14 @@ build/
 *.mp4
 *.mkv
 
+# Generated output
+frames/
+*.md
+!README.md
+
+# Superpowers / brainstorming artifacts
+.superpowers/
+
 # OS
 .DS_Store
 Thumbs.db
