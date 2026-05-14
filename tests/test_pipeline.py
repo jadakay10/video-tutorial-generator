@@ -23,10 +23,14 @@ def test_extract_frames_calls_ffmpeg(tmp_path):
     frames_dir = tmp_path / "frames"
     with patch("video_to_tutorial.subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(returncode=0)
-        extract_frames(video, frames_dir)
-    assert frames_dir.exists()
+        # Create a fake frame file so glob returns it
+        frames_dir.mkdir()
+        (frames_dir / "frame_0001.jpg").write_bytes(b"fake")
+        result = extract_frames(video, frames_dir)
     args = mock_run.call_args[0][0]
     assert "fps=1/5" in " ".join(args)
+    assert len(result) == 1
+    assert result[0].name == "frame_0001.jpg"
 
 
 def test_transcribe_audio_returns_string(tmp_path):
@@ -61,4 +65,4 @@ def test_generate_tutorial_returns_string():
     mock_client.messages.stream.return_value = mock_stream
     with patch("video_to_tutorial.anthropic.Anthropic", return_value=mock_client):
         result = generate_tutorial("transcript text", [])
-    assert "# Title" in result
+    assert result == "# Title\nStep 1"

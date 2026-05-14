@@ -46,7 +46,11 @@ def transcribe_audio(audio_path: Path) -> str:
 def encode_frames(frame_files: list[Path]) -> list[dict]:
     blocks = []
     for frame_file in frame_files:
-        data = base64.standard_b64encode(frame_file.read_bytes()).decode("utf-8")
+        try:
+            raw = frame_file.read_bytes()
+        except OSError as e:
+            raise RuntimeError(f"Could not read frame '{frame_file}': {e}")
+        data = base64.standard_b64encode(raw).decode("utf-8")
         blocks.append(
             {
                 "type": "image",
@@ -96,7 +100,7 @@ def main() -> None:
 
     video_stem = video_path.stem
     audio_path = video_path.parent / f"{video_stem}.mp3"
-    frames_dir = Path("frames")
+    frames_dir = video_path.parent / f"{video_stem}_frames"
     output_path = Path(f"{video_stem}.md")
 
     print(f"[1/5] Extracting audio from '{video_path.name}'...")
@@ -119,6 +123,10 @@ def main() -> None:
     print("─" * 60)
     tutorial = generate_tutorial(transcript, image_blocks)
     print("\n" + "─" * 60)
+
+    if not tutorial.strip():
+        print("Error: Claude returned an empty response. The output file was not written.")
+        sys.exit(1)
 
     markdown_output = f"## Transcript\n\n{transcript}\n\n---\n\n{tutorial}"
     output_path.write_text(markdown_output, encoding="utf-8")
