@@ -97,9 +97,37 @@
 
     #result-section h2 { margin-bottom: 16px; font-size: 1.2rem; }
 
-    #download-btn {
+    #transcript-section {
+      margin-bottom: 32px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    #transcript-output {
+      max-height: 180px;
+      overflow-y: auto;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 0.88rem;
+      line-height: 1.6;
+      color: #444;
+      white-space: pre-wrap;
+    }
+    #copy-btn, #download-docx-btn {
+      padding: 6px 14px;
+      background: #fff;
+      color: #4f46e5;
+      border: 1px solid #4f46e5;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+    #copy-btn:hover, #download-docx-btn:hover { background: #eef2ff; }
+    #copy-btn.copied { color: #16a34a; border-color: #16a34a; }
+
+    #download-md-btn {
       display: inline-block;
-      margin-bottom: 24px;
       padding: 8px 20px;
       background: #4f46e5;
       color: #fff;
@@ -109,7 +137,7 @@
       font-size: 0.9rem;
       text-decoration: none;
     }
-    #download-btn:hover { background: #4338ca; }
+    #download-md-btn:hover { background: #4338ca; }
 
     #tutorial-output {
       line-height: 1.7;
@@ -161,8 +189,19 @@
   </div>
 
   <div id="result-section">
-    <h2>Your Tutorial</h2>
-    <a id="download-btn" download>⬇ Download .md</a>
+    <div id="transcript-section">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <h2 style="margin:0;">Transcript</h2>
+        <button id="copy-btn" onclick="copyTranscript()">Copy</button>
+      </div>
+      <div id="transcript-output"></div>
+    </div>
+
+    <h2>Tutorial</h2>
+    <div style="display:flex;gap:10px;margin-bottom:24px;">
+      <a id="download-md-btn" download>⬇ Download .md</a>
+      <button id="download-docx-btn" onclick="downloadDocx()">⬇ Download .docx</button>
+    </div>
     <div id="tutorial-output"></div>
   </div>
 
@@ -173,8 +212,12 @@
     const progressSection = document.getElementById('progress-section');
     const progressFill = document.getElementById('progress-fill');
     const resultSection = document.getElementById('result-section');
-    const downloadBtn = document.getElementById('download-btn');
+    const downloadMdBtn = document.getElementById('download-md-btn');
     const tutorialOutput = document.getElementById('tutorial-output');
+    const transcriptOutput = document.getElementById('transcript-output');
+    let currentMarkdown = '';
+    let currentFilename = '';
+    let currentTutorial = '';
 
     function showError(msg) {
       errorMsg.textContent = msg;
@@ -233,7 +276,7 @@
           es.close();
           for (let i = 1; i <= 5; i++) setStepState(i, 'done');
           progressFill.style.width = '100%';
-          showResult(event.markdown, filename);
+          showResult(event.markdown, event.transcript, event.tutorial, event.filename);
           dropZone.classList.remove('disabled');
         } else if (event.error) {
           es.close();
@@ -243,13 +286,45 @@
       es.onerror = () => { es.close(); handleError('Connection lost. Please try again.'); };
     }
 
-    function showResult(markdown, filename) {
-      tutorialOutput.innerHTML = marked.parse(markdown);
+    function showResult(markdown, transcript, tutorial, filename) {
+      currentMarkdown = markdown;
+      currentFilename = filename;
+      currentTutorial = tutorial;
+
+      transcriptOutput.textContent = transcript;
+      tutorialOutput.innerHTML = marked.parse(tutorial);
+
       const blob = new Blob([markdown], { type: 'text/markdown' });
-      downloadBtn.href = URL.createObjectURL(blob);
-      downloadBtn.download = filename + '.md';
+      downloadMdBtn.href = URL.createObjectURL(blob);
+      downloadMdBtn.download = filename + '.md';
+
       resultSection.style.display = 'block';
       resultSection.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function copyTranscript() {
+      navigator.clipboard.writeText(currentMarkdown.split('---')[0].replace('## Transcript\n\n', '').trim())
+        .then(() => {
+          const btn = document.getElementById('copy-btn');
+          btn.textContent = 'Copied!';
+          btn.classList.add('copied');
+          setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+        });
+    }
+
+    function downloadDocx() {
+      fetch('/download/docx', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ markdown: currentTutorial, filename: currentFilename }),
+      })
+        .then(r => r.blob())
+        .then(blob => {
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = currentFilename + '.docx';
+          a.click();
+        });
     }
 
     function handleError(msg) {

@@ -27,6 +27,7 @@ build/
 
 # Generated output
 frames/
+uploads/
 *.md
 !README.md
 

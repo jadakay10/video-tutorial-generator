@@ -43,6 +43,16 @@ def transcribe_audio(audio_path: Path) -> str:
     return result["text"].strip()
 
 
+MAX_FRAMES = 80
+
+
+def sample_frames(frame_files: list[Path]) -> list[Path]:
+    if len(frame_files) <= MAX_FRAMES:
+        return frame_files
+    step = len(frame_files) / MAX_FRAMES
+    return [frame_files[int(i * step)] for i in range(MAX_FRAMES)]
+
+
 def encode_frames(frame_files: list[Path]) -> list[dict]:
     blocks = []
     for frame_file in frame_files:
@@ -115,6 +125,7 @@ def main() -> None:
     transcript = transcribe_audio(audio_path)
     print(f"      Transcription complete ({len(transcript)} characters).")
 
+    frame_files = sample_frames(frame_files)
     print(f"[4/5] Encoding {len(frame_files)} frames for the API...")
     image_blocks = encode_frames(frame_files)
     print("      Frames encoded.")

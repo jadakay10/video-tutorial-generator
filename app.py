@@ -1,16 +1,21 @@
 import json
+import re
 import threading
 import queue
 import uuid
+from io import BytesIO
 from pathlib import Path
 
-from flask import Flask, request, jsonify, Response, render_template
+from docx import Document
+from docx.shared import Pt
+from flask import Flask, request, jsonify, Response, render_template, send_file
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 
 from video_to_tutorial import (
     extract_audio,
     extract_frames,
+    sample_frames,
     transcribe_audio,
     encode_frames,
     generate_tutorial,
@@ -29,6 +34,33 @@ _active_job: list[str] = []  # at most one entry
 _lock = threading.Lock()
 
 
+def _markdown_to_docx(markdown_text: str) -> bytes:
+    doc = Document()
+    for line in markdown_text.splitlines():
+        if line.startswith("### "):
+            doc.add_heading(line[4:], level=3)
+        elif line.startswith("## "):
+            doc.add_heading(line[3:], level=2)
+        elif line.startswith("# "):
+            doc.add_heading(line[2:], level=1)
+        elif line.startswith(("- ", "* ")):
+            doc.add_paragraph(line[2:], style="List Bullet")
+        elif re.match(r"^\d+\. ", line):
+            doc.add_paragraph(re.sub(r"^\d+\. ", "", line), style="List Number")
+        elif line.strip() in ("", "---"):
+            continue
+        else:
+            p = doc.add_paragraph()
+            for i, part in enumerate(re.split(r"\*\*(.*?)\*\*", line)):
+                run = p.add_run(part)
+                if i % 2 == 1:
+                    run.bold = True
+    buf = BytesIO()
+    doc.save(buf)
+    buf.seek(0)
+    return buf.read()
+
+
 def _run_pipeline(job_id: str, video_path: Path) -> None:
     q = _jobs[job_id]
     try:
@@ -45,13 +77,20 @@ def _run_pipeline(job_id: str, video_path: Path) -> None:
         transcript = transcribe_audio(audio_path)
 
         q.put({"step": 4, "label": "Encoding frames"})
+        frame_files = sample_frames(frame_files)
         image_blocks = encode_frames(frame_files)
 
         q.put({"step": 5, "label": "Generating tutorial with Claude"})
         tutorial = generate_tutorial(transcript, image_blocks)
 
         markdown = f"## Transcript\n\n{transcript}\n\n---\n\n{tutorial}"
-        q.put({"done": True, "markdown": markdown, "filename": video_path.stem + ".md"})
+        q.put({
+            "done": True,
+            "markdown": markdown,
+            "transcript": transcript,
+            "tutorial": tutorial,
+            "filename": video_path.stem,
+        })
     except Exception as exc:
         q.put({"error": str(exc)})
     finally:
@@ -116,6 +155,21 @@ def progress(job_id: str):
 
     return Response(generate(), mimetype="text/event-stream",
                     headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+@app.route("/download/docx", methods=["POST"])
+def download_docx():
+    data = request.get_json()
+    if not data or "markdown" not in data:
+        return jsonify({"error": "No markdown provided."}), 400
+    filename = secure_filename(data.get("filename", "tutorial")) + ".docx"
+    docx_bytes = _markdown_to_docx(data["markdown"])
+    return send_file(
+        BytesIO(docx_bytes),
+        mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        as_attachment=True,
+        download_name=filename,
+    )
 
 
 if __name__ == "__main__":
