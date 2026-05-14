@@ -13,6 +13,16 @@ def client():
         yield c
 
 
+@pytest.fixture(autouse=True)
+def reset_job_state():
+    import app as app_module
+    app_module._active_job.clear()
+    app_module._jobs.clear()
+    yield
+    app_module._active_job.clear()
+    app_module._jobs.clear()
+
+
 def test_index_returns_200(client):
     response = client.get("/")
     assert response.status_code == 200
