@@ -38,8 +38,59 @@
     #drop-zone.disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
     #drop-zone p { color: #555; margin-top: 8px; font-size: 0.9rem; }
     #file-input { display: none; }
-
     .drop-icon { font-size: 2.5rem; }
+
+    /* Video selected zone */
+    #video-selected-zone {
+      display: none;
+      width: 100%;
+      max-width: 560px;
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 16px 20px;
+    }
+    #video-file-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    #video-filename {
+      font-size: 0.9rem;
+      color: #1a1a1a;
+      font-weight: 500;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    #video-file-actions { display: flex; gap: 8px; flex-shrink: 0; }
+    .video-action-btn {
+      background: none;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 0.78rem;
+      cursor: pointer;
+      color: #555;
+    }
+    .video-action-btn:hover { background: #f3f4f6; }
+    .video-action-btn.danger:hover { border-color: #dc2626; color: #dc2626; }
+
+    #generate-btn {
+      width: 100%;
+      padding: 11px;
+      background: #4f46e5;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    #generate-btn:hover { background: #4338ca; }
+    #generate-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
     /* Error */
     #error-msg {
@@ -49,40 +100,7 @@
       font-size: 0.9rem;
     }
 
-    /* Progress */
-    #progress-section {
-      display: none;
-      width: 100%;
-      max-width: 560px;
-      margin-top: 32px;
-      background: #fff;
-      border-radius: 12px;
-      padding: 24px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-    }
-
-    .progress-bar-track {
-      width: 100%;
-      height: 8px;
-      background: #e5e7eb;
-      border-radius: 99px;
-      overflow: hidden;
-      margin-bottom: 20px;
-    }
-    .progress-bar-fill {
-      height: 100%;
-      width: 0%;
-      background: #4f46e5;
-      border-radius: 99px;
-      transition: width 0.4s ease;
-    }
-
-    .steps { list-style: none; display: flex; flex-direction: column; gap: 10px; }
-    .step { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; color: #888; }
-    .step.active { color: #4f46e5; font-weight: 600; }
-    .step.done { color: #16a34a; }
-    .step.skipped { color: #aaa; }
-
+    /* Screenshot zone */
     #screenshot-zone {
       width: 100%;
       max-width: 560px;
@@ -100,137 +118,100 @@
     #screenshot-zone p { color: #777; font-size: 0.82rem; margin-top: 4px; }
     #screenshot-zone code { background: #f3f4f6; padding: 1px 4px; border-radius: 3px; }
     #screenshot-input { display: none; }
-    #screenshot-count {
-      margin-top: 10px;
-      text-align: left;
-    }
+    #screenshot-count { margin-top: 10px; text-align: left; }
     #screenshot-count ul {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
+      list-style: none; padding: 0; margin: 0;
+      display: flex; flex-direction: column; gap: 4px;
     }
     #screenshot-count li {
-      font-size: 0.8rem;
-      color: #4f46e5;
-      background: #eef2ff;
-      border-radius: 6px;
-      padding: 3px 8px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
+      font-size: 0.8rem; color: #4f46e5; background: #eef2ff;
+      border-radius: 6px; padding: 3px 8px;
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
     }
-    #screenshot-count li span {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
+    #screenshot-count li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .remove-file-btn {
-      flex-shrink: 0;
-      background: none;
-      border: none;
-      color: #aaa;
-      cursor: pointer;
-      font-size: 0.9rem;
-      line-height: 1;
-      padding: 0 2px;
+      flex-shrink: 0; background: none; border: none;
+      color: #aaa; cursor: pointer; font-size: 0.9rem; line-height: 1; padding: 0 2px;
     }
     .remove-file-btn:hover { color: #dc2626; }
     .add-more-btn {
-      margin-top: 8px;
-      background: none;
-      border: 1px dashed #4f46e5;
-      color: #4f46e5;
-      border-radius: 6px;
-      padding: 4px 12px;
-      font-size: 0.8rem;
-      cursor: pointer;
-      width: 100%;
+      margin-top: 8px; background: none; border: 1px dashed #4f46e5;
+      color: #4f46e5; border-radius: 6px; padding: 4px 12px;
+      font-size: 0.8rem; cursor: pointer; width: 100%;
     }
     .add-more-btn:hover { background: #eef2ff; }
+
+    /* Progress */
+    #progress-section {
+      display: none;
+      width: 100%; max-width: 560px; margin-top: 32px;
+      background: #fff; border-radius: 12px; padding: 24px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+    .progress-bar-track {
+      width: 100%; height: 8px; background: #e5e7eb;
+      border-radius: 99px; overflow: hidden; margin-bottom: 20px;
+    }
+    .progress-bar-fill {
+      height: 100%; width: 0%; background: #4f46e5;
+      border-radius: 99px; transition: width 0.4s ease;
+    }
+    .steps { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+    .step { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; color: #888; }
+    .step.active { color: #4f46e5; font-weight: 600; }
+    .step.done { color: #16a34a; }
+    .step.skipped { color: #aaa; }
     .step-icon { width: 20px; text-align: center; }
 
     /* Result */
     #result-section {
       display: none;
-      width: 100%;
-      max-width: 760px;
-      margin-top: 32px;
-      background: #fff;
-      border-radius: 12px;
-      padding: 32px;
+      width: 100%; max-width: 760px; margin-top: 32px;
+      background: #fff; border-radius: 12px; padding: 32px;
       box-shadow: 0 1px 4px rgba(0,0,0,0.08);
     }
-
-    #result-section h2 { margin-bottom: 16px; font-size: 1.2rem; }
+    #result-section h2 { margin-bottom: 12px; font-size: 1.2rem; }
 
     #transcript-section {
-      margin-bottom: 32px;
-      padding-bottom: 24px;
+      margin-bottom: 32px; padding-bottom: 24px;
       border-bottom: 1px solid #e5e7eb;
     }
+    .transcript-toolbar {
+      display: flex; align-items: center;
+      justify-content: space-between; margin-bottom: 10px; gap: 8px; flex-wrap: wrap;
+    }
+    .transcript-tabs { display: flex; gap: 6px; }
+    .tab-btn {
+      padding: 4px 12px; border-radius: 6px; font-size: 0.8rem; cursor: pointer;
+      border: 1px solid #d1d5db; background: #fff; color: #555;
+    }
+    .tab-btn.active { background: #4f46e5; color: #fff; border-color: #4f46e5; }
     #transcript-output {
-      max-height: 180px;
-      overflow-y: auto;
-      background: #f9fafb;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      padding: 12px 16px;
-      font-size: 0.88rem;
-      line-height: 1.6;
-      color: #444;
-      white-space: pre-wrap;
+      max-height: 220px; overflow-y: auto; background: #f9fafb;
+      border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 16px;
+      font-size: 0.88rem; line-height: 1.6; color: #444; white-space: pre-wrap;
     }
     #copy-btn, #download-docx-btn {
-      padding: 6px 14px;
-      background: #fff;
-      color: #4f46e5;
-      border: 1px solid #4f46e5;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 0.85rem;
+      padding: 6px 14px; background: #fff; color: #4f46e5;
+      border: 1px solid #4f46e5; border-radius: 8px; cursor: pointer; font-size: 0.85rem;
     }
     #copy-btn:hover, #download-docx-btn:hover { background: #eef2ff; }
     #copy-btn.copied { color: #16a34a; border-color: #16a34a; }
-
     #download-md-btn {
-      display: inline-block;
-      padding: 8px 20px;
-      background: #4f46e5;
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 0.9rem;
-      text-decoration: none;
+      display: inline-block; padding: 8px 20px; background: #4f46e5;
+      color: #fff; border: none; border-radius: 8px; cursor: pointer;
+      font-size: 0.9rem; text-decoration: none;
     }
     #download-md-btn:hover { background: #4338ca; }
-
-    #tutorial-output {
-      line-height: 1.7;
-      color: #1a1a1a;
-    }
-    #tutorial-output h1, #tutorial-output h2, #tutorial-output h3 {
-      margin: 1.2em 0 0.4em;
-    }
+    #tutorial-output { line-height: 1.7; color: #1a1a1a; }
+    #tutorial-output h1, #tutorial-output h2, #tutorial-output h3 { margin: 1.2em 0 0.4em; }
     #tutorial-output p { margin-bottom: 0.8em; }
-    #tutorial-output ul, #tutorial-output ol {
-      margin: 0.4em 0 0.8em 1.4em;
-    }
+    #tutorial-output ul, #tutorial-output ol { margin: 0.4em 0 0.8em 1.4em; }
+    #tutorial-output img { max-width: 100%; border-radius: 8px; margin: 8px 0; }
     #tutorial-output code {
-      background: #f3f4f6;
-      padding: 1px 5px;
-      border-radius: 4px;
-      font-size: 0.88em;
+      background: #f3f4f6; padding: 1px 5px; border-radius: 4px; font-size: 0.88em;
     }
-    #tutorial-output pre code {
-      display: block;
-      padding: 12px;
-      overflow-x: auto;
-    }
+    #tutorial-output pre code { display: block; padding: 12px; overflow-x: auto; }
   </style>
 </head>
 <body>
@@ -243,6 +224,18 @@
     <p>or click to choose a file</p>
     <input type="file" id="file-input" accept=".mp4" />
   </div>
+
+  <div id="video-selected-zone">
+    <div id="video-file-row">
+      <span id="video-filename">🎬</span>
+      <div id="video-file-actions">
+        <button class="video-action-btn" onclick="replaceVideo()">Replace</button>
+        <button class="video-action-btn danger" onclick="removeVideo()">Remove</button>
+      </div>
+    </div>
+    <button id="generate-btn" onclick="startGeneration()">Generate Tutorial</button>
+  </div>
+
   <div id="error-msg"></div>
 
   <div id="screenshot-zone">
@@ -267,8 +260,12 @@
 
   <div id="result-section">
     <div id="transcript-section">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+      <div class="transcript-toolbar">
         <h2 style="margin:0;">Transcript</h2>
+        <div class="transcript-tabs">
+          <button class="tab-btn active" id="tab-plain" onclick="switchTab('plain')">Plain</button>
+          <button class="tab-btn" id="tab-annotated" onclick="switchTab('annotated')">With image markers</button>
+        </div>
         <button id="copy-btn" onclick="copyTranscript()">Copy</button>
       </div>
       <div id="transcript-output"></div>
@@ -283,29 +280,38 @@
   </div>
 
   <script>
-    const dropZone = document.getElementById('drop-zone');
-    const fileInput = document.getElementById('file-input');
-    const errorMsg = document.getElementById('error-msg');
-    const progressSection = document.getElementById('progress-section');
-    const progressFill = document.getElementById('progress-fill');
-    const resultSection = document.getElementById('result-section');
-    const downloadMdBtn = document.getElementById('download-md-btn');
-    const tutorialOutput = document.getElementById('tutorial-output');
+    // ── DOM refs ─────────────────────────────────────────────────────────────
+    const dropZone         = document.getElementById('drop-zone');
+    const fileInput        = document.getElementById('file-input');
+    const videoSelectedZone= document.getElementById('video-selected-zone');
+    const videoFilename    = document.getElementById('video-filename');
+    const generateBtn      = document.getElementById('generate-btn');
+    const errorMsg         = document.getElementById('error-msg');
+    const progressSection  = document.getElementById('progress-section');
+    const progressFill     = document.getElementById('progress-fill');
+    const resultSection    = document.getElementById('result-section');
+    const downloadMdBtn    = document.getElementById('download-md-btn');
+    const tutorialOutput   = document.getElementById('tutorial-output');
     const transcriptOutput = document.getElementById('transcript-output');
-    const screenshotZone = document.getElementById('screenshot-zone');
-    const screenshotInput = document.getElementById('screenshot-input');
-    const screenshotCount = document.getElementById('screenshot-count');
-    let currentMarkdown = '';
-    let currentFilename = '';
-    let currentTutorial = '';
+    const screenshotZone   = document.getElementById('screenshot-zone');
+    const screenshotInput  = document.getElementById('screenshot-input');
+    const screenshotCount  = document.getElementById('screenshot-count');
 
-    function showError(msg) {
-      errorMsg.textContent = msg;
-      errorMsg.style.display = 'block';
-    }
-    function clearError() {
-      errorMsg.style.display = 'none';
-    }
+    // ── State ─────────────────────────────────────────────────────────────────
+    let selectedVideoFile   = null;
+    let screenshotFiles     = [];
+    let currentMarkdown     = '';
+    let currentFilename     = '';
+    let currentTutorial     = '';
+    let currentTranscriptPlain      = '';
+    let currentTranscriptAnnotated  = '';
+    let activeTab           = 'plain';
+
+    // ── Error ─────────────────────────────────────────────────────────────────
+    function showError(msg) { errorMsg.textContent = msg; errorMsg.style.display = 'block'; }
+    function clearError()   { errorMsg.style.display = 'none'; }
+
+    // ── Step progress (preserves skipped state) ───────────────────────────────
     function setStepState(stepNum, state) {
       const el = document.querySelector(`.step[data-step="${stepNum}"]`);
       if (!el) return;
@@ -316,27 +322,54 @@
     function setProgress(stepNum) {
       progressFill.style.width = (stepNum / 5 * 100) + '%';
       for (let i = 1; i <= 5; i++) {
-        if (i < stepNum) setStepState(i, 'done');
+        const el = document.querySelector(`.step[data-step="${i}"]`);
+        if (el && el.classList.contains('skipped')) continue; // preserve skipped
+        if (i < stepNum)      setStepState(i, 'done');
         else if (i === stepNum) setStepState(i, 'active');
-        else setStepState(i, '');
+        else                  setStepState(i, '');
       }
     }
 
-    function startUpload(file) {
-      clearError();
+    // ── Video selection ───────────────────────────────────────────────────────
+    function selectVideo(file) {
       if (!file.name.toLowerCase().endsWith('.mp4')) {
         showError('Only .mp4 files are supported.');
         return;
       }
+      clearError();
+      selectedVideoFile = file;
+      videoFilename.textContent = '🎬 ' + file.name;
+      dropZone.style.display = 'none';
+      videoSelectedZone.style.display = 'block';
+    }
 
-      dropZone.classList.add('disabled');
+    function removeVideo() {
+      selectedVideoFile = null;
+      fileInput.value = '';
+      dropZone.style.display = 'block';
+      videoSelectedZone.style.display = 'none';
+      clearError();
+    }
+
+    function replaceVideo() { fileInput.click(); }
+
+    // ── Generation ────────────────────────────────────────────────────────────
+    function startGeneration() {
+      if (!selectedVideoFile) return;
+      clearError();
+
+      generateBtn.disabled = true;
       screenshotZone.classList.add('disabled');
       progressSection.style.display = 'block';
       resultSection.style.display = 'none';
+
+      // Reset step states
+      for (let i = 1; i <= 5; i++) setStepState(i, '');
+      progressFill.style.width = '0%';
       setProgress(1);
 
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('file', selectedVideoFile);
       for (const f of screenshotFiles) {
         formData.append('screenshots', f);
       }
@@ -345,12 +378,13 @@
         .then(r => r.json())
         .then(data => {
           if (data.error) { handleError(data.error); return; }
-          listenForProgress(data.job_id, file.name.replace('.mp4', ''));
+          listenForProgress(data.job_id);
         })
         .catch(err => handleError(err.message));
     }
 
-    function listenForProgress(jobId, filename) {
+    // ── SSE progress ──────────────────────────────────────────────────────────
+    function listenForProgress(jobId) {
       const es = new EventSource('/progress/' + jobId);
       es.onmessage = (e) => {
         const event = JSON.parse(e.data);
@@ -366,8 +400,8 @@
             if (el && !el.classList.contains('skipped')) setStepState(i, 'done');
           }
           progressFill.style.width = '100%';
-          showResult(event.markdown, event.transcript, event.tutorial, event.filename);
-          dropZone.classList.remove('disabled');
+          showResult(event);
+          generateBtn.disabled = false;
           screenshotZone.classList.remove('disabled');
           screenshotFiles = [];
           screenshotInput.value = '';
@@ -380,30 +414,70 @@
       es.onerror = () => { es.close(); handleError('Connection lost. Please try again.'); };
     }
 
-    function showResult(markdown, transcript, tutorial, filename) {
-      currentMarkdown = markdown;
-      currentFilename = filename;
-      currentTutorial = tutorial;
+    // ── Results ───────────────────────────────────────────────────────────────
+    function buildAnnotatedTranscript(segments, screenshots) {
+      if (!segments || segments.length === 0) return currentTranscriptPlain;
+      if (!screenshots || screenshots.length === 0) return currentTranscriptPlain;
 
-      transcriptOutput.textContent = transcript;
-      tutorialOutput.innerHTML = marked.parse(tutorial);
+      const shots = [...screenshots].sort((a, b) => a.seconds - b.seconds);
+      let shotIdx = 0;
+      let result = '';
 
-      const blob = new Blob([markdown], { type: 'text/markdown' });
+      for (const seg of segments) {
+        while (shotIdx < shots.length && shots[shotIdx].seconds <= seg.start) {
+          result += `\n[Screenshot at ${shots[shotIdx].label}]\n`;
+          shotIdx++;
+        }
+        result += seg.text;
+      }
+      while (shotIdx < shots.length) {
+        result += `\n[Screenshot at ${shots[shotIdx].label}]\n`;
+        shotIdx++;
+      }
+      return result.trim();
+    }
+
+    function showResult(event) {
+      currentMarkdown  = event.markdown || '';
+      currentFilename  = event.filename || 'tutorial';
+      currentTutorial  = event.tutorial || '';
+      currentTranscriptPlain = event.transcript || '';
+      currentTranscriptAnnotated = buildAnnotatedTranscript(event.segments, event.screenshots);
+
+      // Show plain transcript by default
+      activeTab = 'plain';
+      document.getElementById('tab-plain').classList.add('active');
+      document.getElementById('tab-annotated').classList.remove('active');
+      transcriptOutput.textContent = currentTranscriptPlain;
+
+      // Render tutorial
+      tutorialOutput.innerHTML = marked.parse(currentTutorial);
+
+      // Download buttons
+      const blob = new Blob([currentMarkdown], { type: 'text/markdown' });
       downloadMdBtn.href = URL.createObjectURL(blob);
-      downloadMdBtn.download = filename + '.md';
+      downloadMdBtn.download = currentFilename + '.md';
 
       resultSection.style.display = 'block';
       resultSection.scrollIntoView({ behavior: 'smooth' });
     }
 
+    function switchTab(tab) {
+      activeTab = tab;
+      document.getElementById('tab-plain').classList.toggle('active', tab === 'plain');
+      document.getElementById('tab-annotated').classList.toggle('active', tab === 'annotated');
+      transcriptOutput.textContent =
+        tab === 'plain' ? currentTranscriptPlain : currentTranscriptAnnotated;
+    }
+
     function copyTranscript() {
-      navigator.clipboard.writeText(currentMarkdown.split('---')[0].replace('## Transcript\n\n', '').trim())
-        .then(() => {
-          const btn = document.getElementById('copy-btn');
-          btn.textContent = 'Copied!';
-          btn.classList.add('copied');
-          setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
-        });
+      const text = activeTab === 'plain' ? currentTranscriptPlain : currentTranscriptAnnotated;
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = document.getElementById('copy-btn');
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+      });
     }
 
     function downloadDocx() {
@@ -423,27 +497,26 @@
 
     function handleError(msg) {
       progressSection.style.display = 'none';
-      dropZone.classList.remove('disabled');
+      generateBtn.disabled = false;
       screenshotZone.classList.remove('disabled');
       showError('Error: ' + msg);
     }
 
-    // Drag and drop
+    // ── Video drop zone ───────────────────────────────────────────────────────
     dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
     dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
     dropZone.addEventListener('drop', (e) => {
       e.preventDefault();
       dropZone.classList.remove('drag-over');
       const file = e.dataTransfer.files[0];
-      if (file) startUpload(file);
+      if (file) selectVideo(file);
     });
     dropZone.addEventListener('click', () => fileInput.click());
     fileInput.addEventListener('change', () => {
-      if (fileInput.files[0]) startUpload(fileInput.files[0]);
+      if (fileInput.files[0]) selectVideo(fileInput.files[0]);
     });
 
-    let screenshotFiles = [];
-
+    // ── Screenshot zone ───────────────────────────────────────────────────────
     function renderFileList() {
       if (screenshotFiles.length === 0) { screenshotCount.innerHTML = ''; return; }
       const sorted = [...screenshotFiles].sort((a, b) => a.name.localeCompare(b.name));
@@ -474,7 +547,6 @@
       renderFileList();
     }
 
-    // Screenshot zone
     screenshotZone.addEventListener('dragover', (e) => { e.preventDefault(); screenshotZone.classList.add('drag-over'); });
     screenshotZone.addEventListener('dragleave', () => screenshotZone.classList.remove('drag-over'));
     screenshotZone.addEventListener('drop', (e) => {

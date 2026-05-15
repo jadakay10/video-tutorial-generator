@@ -8,7 +8,7 @@ from pathlib import Path
 
 from docx import Document
 from docx.shared import Pt
-from flask import Flask, request, jsonify, Response, render_template, send_file
+from flask import Flask, request, jsonify, Response, render_template, send_file, send_from_directory, abort
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 
@@ -88,6 +88,10 @@ def _run_pipeline(job_id: str, video_path: Path, screenshots_dir: Path | None = 
 
             q.put({"step": 4, "label": "Matching screenshots to transcript"})
             paired_screenshots = match_screenshots_to_transcript(shots, segments)
+
+            # Attach serve URLs so Claude can embed images and the frontend can display them
+            for s in paired_screenshots:
+                s["url"] = f"/serve/{job_id}/{s['path'].name}"
         else:
             frames_dir = video_path.parent / (video_path.stem + "_frames")
             q.put({"step": 2, "label": "Extracting frames"})
@@ -104,12 +108,18 @@ def _run_pipeline(job_id: str, video_path: Path, screenshots_dir: Path | None = 
         tutorial = generate_tutorial(transcript, image_blocks, segments, paired_screenshots)
 
         markdown = f"## Transcript\n\n{transcript}\n\n---\n\n{tutorial}"
+        screenshots_out = [
+            {"url": s["url"], "label": s["label"], "seconds": s["seconds"], "context": s["context"]}
+            for s in paired_screenshots
+        ] if paired_screenshots else []
         q.put({
             "done": True,
             "markdown": markdown,
             "transcript": transcript,
             "tutorial": tutorial,
             "filename": video_path.stem,
+            "segments": segments,
+            "screenshots": screenshots_out,
         })
     except Exception as exc:
         q.put({"error": str(exc)})
@@ -203,6 +213,14 @@ def download_docx():
         as_attachment=True,
         download_name=filename,
     )
+
+
+@app.route("/serve/<job_id>/<path:filename>")
+def serve_screenshot(job_id: str, filename: str):
+    folder = UPLOAD_DIR / job_id / "screenshots"
+    if not folder.exists():
+        abort(404)
+    return send_from_directory(folder, filename)
 
 
 if __name__ == "__main__":

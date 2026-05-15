@@ -156,10 +156,11 @@ def generate_tutorial(
     if paired_screenshots is not None:
         content: list[dict] = []
         for shot in paired_screenshots:
-            content.append({
-                "type": "text",
-                "text": f'Screenshot at {shot["label"]} — what was being said: "{shot["context"]}"',
-            })
+            url = shot.get("url", "")
+            caption = f'Screenshot at {shot["label"]} — what was being said: "{shot["context"]}"'
+            if url:
+                caption += f'\nEmbed this image in your tutorial using: ![Screenshot at {shot["label"]}]({url})'
+            content.append({"type": "text", "text": caption})
             content.append(_image_block_from_path(shot["path"]))
         prompt_text = (
             f"Above are screenshots paired with the spoken audio at each moment.\n\n"
@@ -167,11 +168,14 @@ def generate_tutorial(
             f"Using the screenshots and their paired spoken context above, write a detailed "
             f"step-by-step tutorial in Markdown format. Each image is paired with what was "
             f"being said at that moment — use both the visual and the spoken context together "
-            f"when writing each step. The tutorial should:\n"
+            f"when writing each step. Include each screenshot as a markdown image "
+            f"(![Screenshot at label](url)) at the step where it is most relevant. "
+            f"The tutorial should:\n"
             f"- Start with a clear `# Title`\n"
             f"- Include a short introduction explaining what the viewer will learn\n"
             f"- List any prerequisites or tools needed\n"
             f"- Number every step clearly, describing what is shown and what was being said\n"
+            f"- Embed the screenshot image at the relevant step using the markdown syntax provided\n"
             f"- Highlight important tips, warnings, or common mistakes\n"
             f"- End with a brief summary or next steps"
         )
