@@ -149,3 +149,41 @@ def test_pipeline_emits_step2_and_calls_extract_frames_when_no_screenshots(tmp_p
     mock_extract.assert_called_once()
 
     del _jobs[job_id]
+
+
+def test_pipeline_uses_project_root_screenshots_folder_as_fallback(tmp_path):
+    import queue as queue_module
+
+    from app import _run_pipeline, _jobs
+    job_id = "test-root-screenshots-job"
+    q = queue_module.Queue()
+    _jobs[job_id] = q
+
+    video_path = tmp_path / "demo.mp4"
+    video_path.write_bytes(b"fake")
+
+    root_screenshots = tmp_path / "screenshots"
+    root_screenshots.mkdir()
+    (root_screenshots / "01-00.png").write_bytes(b"fake")
+
+    fake_shots = [{"path": root_screenshots / "01-00.png", "seconds": 60.0, "label": "1m 0s"}]
+    fake_paired = [{"path": root_screenshots / "01-00.png", "seconds": 60.0, "label": "1m 0s", "context": "hello"}]
+
+    with patch("app.extract_audio"), \
+         patch("app.load_screenshots", return_value=fake_shots), \
+         patch("app.match_screenshots_to_transcript", return_value=fake_paired), \
+         patch("app.transcribe_audio", return_value=("transcript", [])), \
+         patch("app.generate_tutorial", return_value="# Tutorial") as mock_gen, \
+         patch("app.Path", side_effect=lambda p: root_screenshots if p == "screenshots" else Path(p)), \
+         patch("app._active_job", [job_id]):
+        _run_pipeline(job_id, video_path, screenshots_dir=None)
+
+    events = []
+    while not q.empty():
+        events.append(q.get_nowait())
+
+    step2_event = next(e for e in events if e.get("step") == 2)
+    assert step2_event.get("skipped") is True
+    assert mock_gen.call_args[0][3] == fake_paired
+
+    del _jobs[job_id]

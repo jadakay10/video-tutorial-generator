@@ -16,6 +16,7 @@ from video_to_tutorial import (
     extract_audio,
     extract_frames,
     load_screenshots,
+    match_screenshots_to_transcript,
     sample_frames,
     transcribe_audio,
     encode_frames,
@@ -70,28 +71,37 @@ def _run_pipeline(job_id: str, video_path: Path, screenshots_dir: Path | None = 
         q.put({"step": 1, "label": "Extracting audio"})
         extract_audio(video_path, audio_path)
 
-        if screenshots_dir is not None:
-            user_frames = load_screenshots(screenshots_dir)
-            frame_files = [s["path"] for s in user_frames]
-        else:
-            frame_files = []
+        # Priority: uploaded screenshots > project-root screenshots/ folder > auto-extract
+        if screenshots_dir is None and Path("screenshots").exists():
+            screenshots_dir = Path("screenshots")
 
-        if frame_files:
+        shots = load_screenshots(screenshots_dir) if screenshots_dir is not None else []
+
+        paired_screenshots = None
+        image_blocks: list[dict] = []
+
+        if shots:
             q.put({"skipped": True, "step": 2, "label": "Extracting frames"})
+
+            q.put({"step": 3, "label": "Transcribing with Whisper"})
+            transcript, segments = transcribe_audio(audio_path)
+
+            q.put({"step": 4, "label": "Matching screenshots to transcript"})
+            paired_screenshots = match_screenshots_to_transcript(shots, segments)
         else:
             frames_dir = video_path.parent / (video_path.stem + "_frames")
             q.put({"step": 2, "label": "Extracting frames"})
             frame_files = extract_frames(video_path, frames_dir)
 
-        q.put({"step": 3, "label": "Transcribing with Whisper"})
-        transcript, segments = transcribe_audio(audio_path)
+            q.put({"step": 3, "label": "Transcribing with Whisper"})
+            transcript, segments = transcribe_audio(audio_path)
 
-        q.put({"step": 4, "label": "Encoding frames"})
-        frame_files = sample_frames(frame_files)
-        image_blocks = encode_frames(frame_files)
+            q.put({"step": 4, "label": "Encoding frames"})
+            frame_files = sample_frames(frame_files)
+            image_blocks = encode_frames(frame_files)
 
         q.put({"step": 5, "label": "Generating tutorial with Claude"})
-        tutorial = generate_tutorial(transcript, image_blocks, segments)
+        tutorial = generate_tutorial(transcript, image_blocks, segments, paired_screenshots)
 
         markdown = f"## Transcript\n\n{transcript}\n\n---\n\n{tutorial}"
         q.put({
