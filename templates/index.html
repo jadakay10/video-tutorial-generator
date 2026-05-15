@@ -81,6 +81,32 @@
     .step { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; color: #888; }
     .step.active { color: #4f46e5; font-weight: 600; }
     .step.done { color: #16a34a; }
+    .step.skipped { color: #aaa; }
+
+    #screenshot-zone {
+      width: 100%;
+      max-width: 560px;
+      margin-top: 16px;
+      border: 1px dashed #ccc;
+      border-radius: 12px;
+      padding: 20px 24px;
+      background: #fff;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    #screenshot-zone.drag-over { border-color: #4f46e5; background: #eef2ff; }
+    #screenshot-zone.disabled { opacity: 0.5; pointer-events: none; }
+    #screenshot-zone p { color: #777; font-size: 0.82rem; margin-top: 4px; }
+    #screenshot-zone code { background: #f3f4f6; padding: 1px 4px; border-radius: 3px; }
+    #screenshot-input { display: none; }
+    #screenshot-count {
+      display: inline-block;
+      margin-top: 8px;
+      font-size: 0.82rem;
+      color: #4f46e5;
+      font-weight: 600;
+    }
     .step-icon { width: 20px; text-align: center; }
 
     /* Result */
@@ -175,6 +201,13 @@
   </div>
   <div id="error-msg"></div>
 
+  <div id="screenshot-zone">
+    <strong>Screenshots (optional)</strong>
+    <p>Name files as <code>01-30.png</code> or <code>00-01-30.jpg</code> (timestamp format)</p>
+    <input type="file" id="screenshot-input" accept=".png,.jpg,.jpeg" multiple />
+    <div id="screenshot-count"></div>
+  </div>
+
   <div id="progress-section">
     <div class="progress-bar-track">
       <div class="progress-bar-fill" id="progress-fill"></div>
@@ -215,6 +248,9 @@
     const downloadMdBtn = document.getElementById('download-md-btn');
     const tutorialOutput = document.getElementById('tutorial-output');
     const transcriptOutput = document.getElementById('transcript-output');
+    const screenshotZone = document.getElementById('screenshot-zone');
+    const screenshotInput = document.getElementById('screenshot-input');
+    const screenshotCount = document.getElementById('screenshot-count');
     let currentMarkdown = '';
     let currentFilename = '';
     let currentTutorial = '';
@@ -231,7 +267,7 @@
       if (!el) return;
       el.className = 'step ' + state;
       el.querySelector('.step-icon').textContent =
-        state === 'done' ? '✓' : state === 'active' ? '▶' : '○';
+        state === 'done' ? '✓' : state === 'active' ? '▶' : state === 'skipped' ? '—' : '○';
     }
     function setProgress(stepNum) {
       progressFill.style.width = (stepNum / 5 * 100) + '%';
@@ -250,12 +286,18 @@
       }
 
       dropZone.classList.add('disabled');
+      screenshotZone.classList.add('disabled');
       progressSection.style.display = 'block';
       resultSection.style.display = 'none';
       setProgress(1);
 
       const formData = new FormData();
       formData.append('file', file);
+      for (const f of screenshotInput.files) {
+        if (f.name.toLowerCase().match(/\.(png|jpg|jpeg)$/)) {
+          formData.append('screenshots', f);
+        }
+      }
 
       fetch('/upload', { method: 'POST', body: formData })
         .then(r => r.json())
@@ -270,14 +312,23 @@
       const es = new EventSource('/progress/' + jobId);
       es.onmessage = (e) => {
         const event = JSON.parse(e.data);
-        if (event.step) {
+        if (event.skipped) {
+          setStepState(event.step, 'skipped');
+          progressFill.style.width = (event.step / 5 * 100) + '%';
+        } else if (event.step) {
           setProgress(event.step);
         } else if (event.done) {
           es.close();
-          for (let i = 1; i <= 5; i++) setStepState(i, 'done');
+          for (let i = 1; i <= 5; i++) {
+            const el = document.querySelector(`.step[data-step="${i}"]`);
+            if (el && !el.classList.contains('skipped')) setStepState(i, 'done');
+          }
           progressFill.style.width = '100%';
           showResult(event.markdown, event.transcript, event.tutorial, event.filename);
           dropZone.classList.remove('disabled');
+          screenshotZone.classList.remove('disabled');
+          screenshotInput.value = '';
+          screenshotCount.textContent = '';
         } else if (event.error) {
           es.close();
           handleError(event.error);
@@ -330,6 +381,7 @@
     function handleError(msg) {
       progressSection.style.display = 'none';
       dropZone.classList.remove('disabled');
+      screenshotZone.classList.remove('disabled');
       showError('Error: ' + msg);
     }
 
@@ -345,6 +397,26 @@
     dropZone.addEventListener('click', () => fileInput.click());
     fileInput.addEventListener('change', () => {
       if (fileInput.files[0]) startUpload(fileInput.files[0]);
+    });
+
+    // Screenshot zone
+    screenshotZone.addEventListener('dragover', (e) => { e.preventDefault(); screenshotZone.classList.add('drag-over'); });
+    screenshotZone.addEventListener('dragleave', () => screenshotZone.classList.remove('drag-over'));
+    screenshotZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      screenshotZone.classList.remove('drag-over');
+      const files = Array.from(e.dataTransfer.files).filter(f => f.name.toLowerCase().match(/\.(png|jpg|jpeg)$/));
+      if (files.length) {
+        const dt = new DataTransfer();
+        files.forEach(f => dt.items.add(f));
+        screenshotInput.files = dt.files;
+        screenshotCount.textContent = `${files.length} file${files.length > 1 ? 's' : ''} selected`;
+      }
+    });
+    screenshotZone.addEventListener('click', () => screenshotInput.click());
+    screenshotInput.addEventListener('change', () => {
+      const n = screenshotInput.files.length;
+      screenshotCount.textContent = n ? `${n} file${n > 1 ? 's' : ''} selected` : '';
     });
   </script>
 </body>
