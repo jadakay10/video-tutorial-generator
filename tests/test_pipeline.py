@@ -108,6 +108,29 @@ def test_load_screenshots_ignores_non_image_files(tmp_path):
     assert len(results) == 1
 
 
+def test_load_screenshots_empty_folder(tmp_path):
+    from video_to_tutorial import load_screenshots
+    assert load_screenshots(tmp_path) == []
+
+
+def test_load_screenshots_accepts_jpeg_extension(tmp_path):
+    from video_to_tutorial import load_screenshots
+    (tmp_path / "01-00.jpeg").write_bytes(b"")
+    results = load_screenshots(tmp_path)
+    assert len(results) == 1
+    assert results[0]["seconds"] == 60.0
+
+
+def test_load_screenshots_returns_correct_keys(tmp_path):
+    from video_to_tutorial import load_screenshots
+    (tmp_path / "00-30.png").write_bytes(b"")
+    result = load_screenshots(tmp_path)[0]
+    assert set(result.keys()) == {"path", "seconds", "label"}
+    assert isinstance(result["path"], Path)
+    assert isinstance(result["seconds"], float)
+    assert isinstance(result["label"], str)
+
+
 def _make_shot(seconds, tmp_path):
     from pathlib import Path
     from video_to_tutorial import _seconds_to_label
@@ -165,6 +188,25 @@ def test_match_screenshots_empty_inputs(tmp_path):
     assert match_screenshots_to_transcript([], []) == []
 
 
+def test_match_screenshots_multiple_shots_get_independent_contexts(tmp_path):
+    from video_to_tutorial import match_screenshots_to_transcript
+    shot_a = _make_shot(30, tmp_path)
+    shot_b = _make_shot(120, tmp_path)
+    segments = [_seg(30, "early"), _seg(120, "late")]
+    result = match_screenshots_to_transcript([shot_a, shot_b], segments)
+    assert "early" in result[0]["context"]
+    assert "late" not in result[0]["context"]
+    assert "late" in result[1]["context"]
+    assert "early" not in result[1]["context"]
+
+
+def test_match_screenshots_result_contains_context_key(tmp_path):
+    from video_to_tutorial import match_screenshots_to_transcript
+    shot = _make_shot(60, tmp_path)
+    result = match_screenshots_to_transcript([shot], [_seg(60, "hello")])
+    assert set(result[0].keys()) == {"path", "seconds", "label", "context"}
+
+
 def test_generate_tutorial_with_paired_screenshots_interleaves_text_and_image(tmp_path):
     from video_to_tutorial import generate_tutorial
     img = tmp_path / "01-30.png"
@@ -187,6 +229,54 @@ def test_generate_tutorial_with_paired_screenshots_interleaves_text_and_image(tm
     final_text = call_content[-1]["text"]
     assert "full transcript" in final_text
     assert "paired with the spoken audio" in final_text
+
+
+def test_generate_tutorial_paired_multiple_shots_correct_interleaving(tmp_path):
+    from video_to_tutorial import generate_tutorial
+    img_a = tmp_path / "01-00.jpg"
+    img_b = tmp_path / "02-00.png"
+    img_a.write_bytes(b"\xff\xd8\xff")
+    img_b.write_bytes(b"\x89PNG")
+    shots = [
+        {"path": img_a, "seconds": 60.0, "label": "1m 0s", "context": "first step"},
+        {"path": img_b, "seconds": 120.0, "label": "2m 0s", "context": "second step"},
+    ]
+    mock_client = MagicMock()
+    mock_stream = MagicMock()
+    mock_stream.__enter__ = MagicMock(return_value=mock_stream)
+    mock_stream.__exit__ = MagicMock(return_value=False)
+    mock_stream.text_stream = iter(["# T"])
+    mock_client.messages.stream.return_value = mock_stream
+    with patch("video_to_tutorial.anthropic.Anthropic", return_value=mock_client):
+        generate_tutorial("transcript", [], paired_screenshots=shots)
+    content = mock_client.messages.stream.call_args[1]["messages"][0]["content"]
+    # text, image, text, image, final prompt
+    assert content[0]["type"] == "text" and "1m 0s" in content[0]["text"]
+    assert content[1]["type"] == "image" and content[1]["source"]["media_type"] == "image/jpeg"
+    assert content[2]["type"] == "text" and "2m 0s" in content[2]["text"]
+    assert content[3]["type"] == "image" and content[3]["source"]["media_type"] == "image/png"
+    assert content[4]["type"] == "text"
+
+
+def test_generate_tutorial_paired_image_blocks_ignored(tmp_path):
+    from video_to_tutorial import generate_tutorial
+    img = tmp_path / "01-00.png"
+    img.write_bytes(b"\x89PNG")
+    shot = {"path": img, "seconds": 60.0, "label": "1m 0s", "context": "hello"}
+    sentinel_block = {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": "SENTINEL"}}
+    mock_client = MagicMock()
+    mock_stream = MagicMock()
+    mock_stream.__enter__ = MagicMock(return_value=mock_stream)
+    mock_stream.__exit__ = MagicMock(return_value=False)
+    mock_stream.text_stream = iter(["# T"])
+    mock_client.messages.stream.return_value = mock_stream
+    with patch("video_to_tutorial.anthropic.Anthropic", return_value=mock_client):
+        generate_tutorial("transcript", [sentinel_block], paired_screenshots=[shot])
+    content = mock_client.messages.stream.call_args[1]["messages"][0]["content"]
+    assert all(
+        not (b.get("source", {}).get("data") == "SENTINEL")
+        for b in content
+    )
 
 
 def test_generate_tutorial_with_paired_screenshots_none_uses_existing_path():
