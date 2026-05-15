@@ -101,12 +101,56 @@
     #screenshot-zone code { background: #f3f4f6; padding: 1px 4px; border-radius: 3px; }
     #screenshot-input { display: none; }
     #screenshot-count {
-      display: inline-block;
-      margin-top: 8px;
-      font-size: 0.82rem;
-      color: #4f46e5;
-      font-weight: 600;
+      margin-top: 10px;
+      text-align: left;
     }
+    #screenshot-count ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    #screenshot-count li {
+      font-size: 0.8rem;
+      color: #4f46e5;
+      background: #eef2ff;
+      border-radius: 6px;
+      padding: 3px 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    #screenshot-count li span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .remove-file-btn {
+      flex-shrink: 0;
+      background: none;
+      border: none;
+      color: #aaa;
+      cursor: pointer;
+      font-size: 0.9rem;
+      line-height: 1;
+      padding: 0 2px;
+    }
+    .remove-file-btn:hover { color: #dc2626; }
+    .add-more-btn {
+      margin-top: 8px;
+      background: none;
+      border: 1px dashed #4f46e5;
+      color: #4f46e5;
+      border-radius: 6px;
+      padding: 4px 12px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      width: 100%;
+    }
+    .add-more-btn:hover { background: #eef2ff; }
     .step-icon { width: 20px; text-align: center; }
 
     /* Result */
@@ -293,10 +337,8 @@
 
       const formData = new FormData();
       formData.append('file', file);
-      for (const f of screenshotInput.files) {
-        if (f.name.toLowerCase().match(/\.(png|jpg|jpeg)$/)) {
-          formData.append('screenshots', f);
-        }
+      for (const f of screenshotFiles) {
+        formData.append('screenshots', f);
       }
 
       fetch('/upload', { method: 'POST', body: formData })
@@ -327,8 +369,9 @@
           showResult(event.markdown, event.transcript, event.tutorial, event.filename);
           dropZone.classList.remove('disabled');
           screenshotZone.classList.remove('disabled');
+          screenshotFiles = [];
           screenshotInput.value = '';
-          screenshotCount.textContent = '';
+          screenshotCount.innerHTML = '';
         } else if (event.error) {
           es.close();
           handleError(event.error);
@@ -399,24 +442,50 @@
       if (fileInput.files[0]) startUpload(fileInput.files[0]);
     });
 
+    let screenshotFiles = [];
+
+    function renderFileList() {
+      if (screenshotFiles.length === 0) { screenshotCount.innerHTML = ''; return; }
+      const sorted = [...screenshotFiles].sort((a, b) => a.name.localeCompare(b.name));
+      screenshotCount.innerHTML = `
+        <ul>${sorted.map(f =>
+          `<li>
+            <span>📷 ${f.name}</span>
+            <button class="remove-file-btn" onclick="event.stopPropagation(); removeFile('${f.name}')" title="Remove">×</button>
+          </li>`
+        ).join('')}</ul>
+        <button class="add-more-btn" onclick="event.stopPropagation(); screenshotInput.click()">+ Add more</button>
+      `;
+    }
+
+    function removeFile(name) {
+      screenshotFiles = screenshotFiles.filter(f => f.name !== name);
+      renderFileList();
+    }
+
+    function addFiles(newFiles) {
+      const existing = new Set(screenshotFiles.map(f => f.name));
+      for (const f of newFiles) {
+        if (f.name.toLowerCase().match(/\.(png|jpg|jpeg)$/) && !existing.has(f.name)) {
+          screenshotFiles.push(f);
+          existing.add(f.name);
+        }
+      }
+      renderFileList();
+    }
+
     // Screenshot zone
     screenshotZone.addEventListener('dragover', (e) => { e.preventDefault(); screenshotZone.classList.add('drag-over'); });
     screenshotZone.addEventListener('dragleave', () => screenshotZone.classList.remove('drag-over'));
     screenshotZone.addEventListener('drop', (e) => {
       e.preventDefault();
       screenshotZone.classList.remove('drag-over');
-      const files = Array.from(e.dataTransfer.files).filter(f => f.name.toLowerCase().match(/\.(png|jpg|jpeg)$/));
-      if (files.length) {
-        const dt = new DataTransfer();
-        files.forEach(f => dt.items.add(f));
-        screenshotInput.files = dt.files;
-        screenshotCount.textContent = `${files.length} file${files.length > 1 ? 's' : ''} selected`;
-      }
+      addFiles(Array.from(e.dataTransfer.files));
     });
     screenshotZone.addEventListener('click', () => screenshotInput.click());
     screenshotInput.addEventListener('change', () => {
-      const n = screenshotInput.files.length;
-      screenshotCount.textContent = n ? `${n} file${n > 1 ? 's' : ''} selected` : '';
+      addFiles(Array.from(screenshotInput.files));
+      screenshotInput.value = '';
     });
   </script>
 </body>

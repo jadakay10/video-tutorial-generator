@@ -96,6 +96,27 @@ def load_screenshots(folder: Path) -> list[dict]:
     return sorted(results, key=lambda x: x["seconds"])
 
 
+def match_screenshots_to_transcript(
+    screenshots: list[dict], segments: list[dict]
+) -> list[dict]:
+    result = []
+    for shot in screenshots:
+        ts = shot["seconds"]
+        matching = [s for s in segments if abs(s["start"] - ts) <= 30]
+        context = (
+            " ".join(s["text"] for s in matching).strip()
+            if matching
+            else "(no spoken audio at this moment)"
+        )
+        result.append({
+            "path": shot["path"],
+            "seconds": shot["seconds"],
+            "label": shot["label"],
+            "context": context,
+        })
+    return result
+
+
 def encode_frames(frame_files: list[Path]) -> list[dict]:
     blocks = []
     for frame_file in frame_files:

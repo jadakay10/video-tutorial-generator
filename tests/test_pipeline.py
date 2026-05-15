@@ -108,6 +108,63 @@ def test_load_screenshots_ignores_non_image_files(tmp_path):
     assert len(results) == 1
 
 
+def _make_shot(seconds, tmp_path):
+    from pathlib import Path
+    from video_to_tutorial import _seconds_to_label
+    return {"path": tmp_path / "shot.png", "seconds": float(seconds), "label": _seconds_to_label(seconds)}
+
+
+def _seg(start, text):
+    return {"start": float(start), "end": float(start + 5), "text": text}
+
+
+def test_match_screenshots_includes_segments_within_30s(tmp_path):
+    from video_to_tutorial import match_screenshots_to_transcript
+    shot = _make_shot(60, tmp_path)
+    segments = [_seg(30, "thirty"), _seg(90, "ninety")]  # |30-60|=30, |90-60|=30 — both on boundary
+    result = match_screenshots_to_transcript([shot], segments)
+    assert len(result) == 1
+    assert "thirty" in result[0]["context"]
+    assert "ninety" in result[0]["context"]
+
+
+def test_match_screenshots_excludes_segments_beyond_30s(tmp_path):
+    from video_to_tutorial import match_screenshots_to_transcript
+    shot = _make_shot(60, tmp_path)
+    segments = [_seg(29, "too early"), _seg(91, "too late")]  # |29-60|=31, |91-60|=31
+    result = match_screenshots_to_transcript([shot], segments)
+    assert result[0]["context"] == "(no spoken audio at this moment)"
+
+
+def test_match_screenshots_concatenates_multiple_segments(tmp_path):
+    from video_to_tutorial import match_screenshots_to_transcript
+    shot = _make_shot(60, tmp_path)
+    segments = [_seg(50, "first"), _seg(55, "second"), _seg(60, "third")]
+    result = match_screenshots_to_transcript([shot], segments)
+    assert result[0]["context"] == "first second third"
+
+
+def test_match_screenshots_fallback_when_no_segments_match(tmp_path):
+    from video_to_tutorial import match_screenshots_to_transcript
+    shot = _make_shot(60, tmp_path)
+    result = match_screenshots_to_transcript([shot], [])
+    assert result[0]["context"] == "(no spoken audio at this moment)"
+
+
+def test_match_screenshots_preserves_path_seconds_label(tmp_path):
+    from video_to_tutorial import match_screenshots_to_transcript
+    shot = _make_shot(90, tmp_path)
+    result = match_screenshots_to_transcript([shot], [])
+    assert result[0]["path"] == shot["path"]
+    assert result[0]["seconds"] == 90.0
+    assert result[0]["label"] == "1m 30s"
+
+
+def test_match_screenshots_empty_inputs(tmp_path):
+    from video_to_tutorial import match_screenshots_to_transcript
+    assert match_screenshots_to_transcript([], []) == []
+
+
 def test_generate_tutorial_returns_string():
     from video_to_tutorial import generate_tutorial
     mock_client = MagicMock()
