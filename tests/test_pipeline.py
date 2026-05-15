@@ -61,6 +61,53 @@ def test_encode_frames_returns_image_blocks(tmp_path):
     assert blocks[0]["source"]["media_type"] == "image/jpeg"
 
 
+def test_load_screenshots_parses_mm_ss(tmp_path):
+    from video_to_tutorial import load_screenshots
+    (tmp_path / "01-30.png").write_bytes(b"")
+    results = load_screenshots(tmp_path)
+    assert len(results) == 1
+    assert results[0]["seconds"] == 90.0
+    assert results[0]["label"] == "1m 30s"
+    assert results[0]["path"] == tmp_path / "01-30.png"
+
+
+def test_load_screenshots_parses_hh_mm_ss(tmp_path):
+    from video_to_tutorial import load_screenshots
+    (tmp_path / "01-02-30.jpg").write_bytes(b"")
+    results = load_screenshots(tmp_path)
+    assert len(results) == 1
+    assert results[0]["seconds"] == 3750.0
+    assert results[0]["label"] == "1h 2m 30s"
+
+
+def test_load_screenshots_sorted_by_seconds(tmp_path):
+    from video_to_tutorial import load_screenshots
+    (tmp_path / "02-00.png").write_bytes(b"")
+    (tmp_path / "00-30.jpg").write_bytes(b"")
+    (tmp_path / "01-00.jpeg").write_bytes(b"")
+    results = load_screenshots(tmp_path)
+    assert [r["seconds"] for r in results] == [30.0, 60.0, 120.0]
+
+
+def test_load_screenshots_skips_bad_names(tmp_path, capsys):
+    from video_to_tutorial import load_screenshots
+    (tmp_path / "screenshot.png").write_bytes(b"")
+    (tmp_path / "01-30.png").write_bytes(b"")
+    results = load_screenshots(tmp_path)
+    assert len(results) == 1
+    captured = capsys.readouterr()
+    assert "screenshot.png" in captured.out
+
+
+def test_load_screenshots_ignores_non_image_files(tmp_path):
+    from video_to_tutorial import load_screenshots
+    (tmp_path / "01-30.txt").write_bytes(b"")
+    (tmp_path / "01-30.mp4").write_bytes(b"")
+    (tmp_path / "01-30.png").write_bytes(b"")
+    results = load_screenshots(tmp_path)
+    assert len(results) == 1
+
+
 def test_generate_tutorial_returns_string():
     from video_to_tutorial import generate_tutorial
     mock_client = MagicMock()

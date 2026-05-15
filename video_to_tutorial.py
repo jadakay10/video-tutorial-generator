@@ -1,5 +1,6 @@
 import sys
 import os
+import re
 import subprocess
 import base64
 import glob
@@ -56,6 +57,43 @@ def sample_frames(frame_files: list[Path]) -> list[Path]:
         return frame_files
     step = len(frame_files) / MAX_FRAMES
     return [frame_files[int(i * step)] for i in range(MAX_FRAMES)]
+
+
+_MM_SS = re.compile(r"^(\d{2})-(\d{2})$")
+_HH_MM_SS = re.compile(r"^(\d{2})-(\d{2})-(\d{2})$")
+
+
+def _seconds_to_label(seconds: float) -> str:
+    total = int(seconds)
+    h, remainder = divmod(total, 3600)
+    m, s = divmod(remainder, 60)
+    if h > 0:
+        return f"{h}h {m}m {s}s"
+    if m > 0:
+        return f"{m}m {s}s"
+    return f"{s}s"
+
+
+def load_screenshots(folder: Path) -> list[dict]:
+    results = []
+    for path in folder.iterdir():
+        if path.suffix.lower() not in (".png", ".jpg", ".jpeg"):
+            continue
+        stem = path.stem
+        m = _HH_MM_SS.match(stem)
+        if m:
+            h, mn, s = int(m.group(1)), int(m.group(2)), int(m.group(3))
+            seconds = float(h * 3600 + mn * 60 + s)
+        else:
+            m = _MM_SS.match(stem)
+            if m:
+                mn, s = int(m.group(1)), int(m.group(2))
+                seconds = float(mn * 60 + s)
+            else:
+                print(f"Warning: skipping '{path.name}' — name does not match MM-SS or HH-MM-SS format.")
+                continue
+        results.append({"path": path, "seconds": seconds, "label": _seconds_to_label(seconds)})
+    return sorted(results, key=lambda x: x["seconds"])
 
 
 def encode_frames(frame_files: list[Path]) -> list[dict]:
