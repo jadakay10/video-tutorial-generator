@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 from video_to_tutorial import (
     extract_audio,
     extract_frames,
+    load_screenshots,
     sample_frames,
     transcribe_audio,
     encode_frames,
@@ -61,17 +62,26 @@ def _markdown_to_docx(markdown_text: str) -> bytes:
     return buf.read()
 
 
-def _run_pipeline(job_id: str, video_path: Path) -> None:
+def _run_pipeline(job_id: str, video_path: Path, screenshots_dir: Path | None = None) -> None:
     q = _jobs[job_id]
     try:
         audio_path = video_path.parent / (video_path.stem + ".mp3")
-        frames_dir = video_path.parent / (video_path.stem + "_frames")
 
         q.put({"step": 1, "label": "Extracting audio"})
         extract_audio(video_path, audio_path)
 
-        q.put({"step": 2, "label": "Extracting frames"})
-        frame_files = extract_frames(video_path, frames_dir)
+        if screenshots_dir is not None:
+            user_frames = load_screenshots(screenshots_dir)
+            frame_files = [s["path"] for s in user_frames]
+        else:
+            frame_files = []
+
+        if frame_files:
+            q.put({"skipped": True, "step": 2, "label": "Extracting frames"})
+        else:
+            frames_dir = video_path.parent / (video_path.stem + "_frames")
+            q.put({"step": 2, "label": "Extracting frames"})
+            frame_files = extract_frames(video_path, frames_dir)
 
         q.put({"step": 3, "label": "Transcribing with Whisper"})
         transcript, segments = transcribe_audio(audio_path)
@@ -111,6 +121,8 @@ def upload():
     if not file.filename.lower().endswith(".mp4"):
         return jsonify({"error": "Only .mp4 files are supported."}), 400
 
+    screenshot_files = request.files.getlist("screenshots")
+
     with _lock:
         if _active_job:
             return jsonify({"error": "A job is already running. Please wait."}), 409
@@ -121,11 +133,24 @@ def upload():
         video_path = job_dir / secure_filename(file.filename)
         file.save(video_path)
 
+        screenshots_dir = None
+        if screenshot_files:
+            screenshots_dir = job_dir / "screenshots"
+            screenshots_dir.mkdir()
+            for sf in screenshot_files:
+                name = secure_filename(sf.filename)
+                if name:
+                    sf.save(screenshots_dir / name)
+
         _jobs[job_id] = queue.Queue()
         _active_job.append(job_id)
 
     try:
-        thread = threading.Thread(target=_run_pipeline, args=(job_id, video_path), daemon=True)
+        thread = threading.Thread(
+            target=_run_pipeline,
+            args=(job_id, video_path, screenshots_dir),
+            daemon=True,
+        )
         thread.start()
     except Exception:
         with _lock:

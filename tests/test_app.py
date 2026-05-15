@@ -54,6 +54,24 @@ def test_upload_accepts_mp4(client, tmp_path):
     assert "job_id" in body
 
 
+def test_upload_accepts_screenshots(client, tmp_path):
+    with patch("app.threading.Thread") as mock_thread, \
+         patch("app.UPLOAD_DIR", tmp_path):
+        mock_thread.return_value.start = MagicMock()
+        data = {
+            "file": (BytesIO(b"fake video"), "demo.mp4"),
+            "screenshots": (BytesIO(b"fake img"), "01-30.png"),
+        }
+        response = client.post("/upload", data=data, content_type="multipart/form-data")
+    assert response.status_code == 200
+    body = json.loads(response.data)
+    assert "job_id" in body
+    # screenshots dir should have been created
+    job_dirs = list(tmp_path.iterdir())
+    assert len(job_dirs) == 1
+    assert (job_dirs[0] / "screenshots").exists()
+
+
 def test_progress_returns_404_for_unknown_job(client):
     response = client.get("/progress/unknown-job-id")
     assert response.status_code == 404
