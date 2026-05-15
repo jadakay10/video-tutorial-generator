@@ -74,14 +74,14 @@ def _run_pipeline(job_id: str, video_path: Path) -> None:
         frame_files = extract_frames(video_path, frames_dir)
 
         q.put({"step": 3, "label": "Transcribing with Whisper"})
-        transcript = transcribe_audio(audio_path)
+        transcript, segments = transcribe_audio(audio_path)
 
         q.put({"step": 4, "label": "Encoding frames"})
         frame_files = sample_frames(frame_files)
         image_blocks = encode_frames(frame_files)
 
         q.put({"step": 5, "label": "Generating tutorial with Claude"})
-        tutorial = generate_tutorial(transcript, image_blocks)
+        tutorial = generate_tutorial(transcript, image_blocks, segments)
 
         markdown = f"## Transcript\n\n{transcript}\n\n---\n\n{tutorial}"
         q.put({

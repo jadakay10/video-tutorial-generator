@@ -37,10 +37,15 @@ def extract_frames(video_path: Path, frames_dir: Path) -> list[Path]:
     return sorted(frames_dir.glob("frame_*.jpg"))
 
 
-def transcribe_audio(audio_path: Path) -> str:
+def transcribe_audio(audio_path: Path) -> tuple[str, list[dict]]:
     model = whisper.load_model("base")
-    result = model.transcribe(str(audio_path))
-    return result["text"].strip()
+    result = model.transcribe(str(audio_path), verbose=False)
+    text = result["text"].strip()
+    segments = [
+        {"start": s["start"], "end": s["end"], "text": s["text"].strip()}
+        for s in result.get("segments", [])
+    ]
+    return text, segments
 
 
 MAX_FRAMES = 80
@@ -70,7 +75,7 @@ def encode_frames(frame_files: list[Path]) -> list[dict]:
     return blocks
 
 
-def generate_tutorial(transcript: str, image_blocks: list[dict]) -> str:
+def generate_tutorial(transcript: str, image_blocks: list[dict], segments: list[dict] | None = None) -> str:
     client = anthropic.Anthropic()
     prompt_text = (
         f"Below are frames captured every 5 seconds from a video, followed by the "
@@ -122,8 +127,8 @@ def main() -> None:
     print(f"      Extracted {len(frame_files)} frames into '{frames_dir}/'.")
 
     print("[3/5] Transcribing audio with Whisper (base model)...")
-    transcript = transcribe_audio(audio_path)
-    print(f"      Transcription complete ({len(transcript)} characters).")
+    transcript, segments = transcribe_audio(audio_path)
+    print(f"      Transcription complete ({len(transcript)} characters, {len(segments)} segments).")
 
     frame_files = sample_frames(frame_files)
     print(f"[4/5] Encoding {len(frame_files)} frames for the API...")
@@ -132,7 +137,7 @@ def main() -> None:
 
     print("[5/5] Sending to Claude to generate tutorial (streaming)...\n")
     print("─" * 60)
-    tutorial = generate_tutorial(transcript, image_blocks)
+    tutorial = generate_tutorial(transcript, image_blocks, segments)
     print("\n" + "─" * 60)
 
     if not tutorial.strip():

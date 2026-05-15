@@ -33,15 +33,21 @@ def test_extract_frames_calls_ffmpeg(tmp_path):
     assert result[0].name == "frame_0001.jpg"
 
 
-def test_transcribe_audio_returns_string(tmp_path):
+def test_transcribe_audio_returns_tuple(tmp_path):
     from video_to_tutorial import transcribe_audio
     audio = tmp_path / "a.mp3"
     audio.write_bytes(b"fake")
     mock_model = MagicMock()
-    mock_model.transcribe.return_value = {"text": " Hello world"}
+    mock_model.transcribe.return_value = {
+        "text": " Hello world",
+        "segments": [{"start": 0.0, "end": 1.5, "text": " Hello world"}],
+    }
     with patch("video_to_tutorial.whisper.load_model", return_value=mock_model):
-        result = transcribe_audio(audio)
-    assert result == "Hello world"
+        text, segments = transcribe_audio(audio)
+    assert text == "Hello world"
+    assert len(segments) == 1
+    assert segments[0] == {"start": 0.0, "end": 1.5, "text": "Hello world"}
+    mock_model.transcribe.assert_called_once_with(str(audio), verbose=False)
 
 
 def test_encode_frames_returns_image_blocks(tmp_path):
