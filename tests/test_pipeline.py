@@ -165,6 +165,45 @@ def test_match_screenshots_empty_inputs(tmp_path):
     assert match_screenshots_to_transcript([], []) == []
 
 
+def test_generate_tutorial_with_paired_screenshots_interleaves_text_and_image(tmp_path):
+    from video_to_tutorial import generate_tutorial
+    img = tmp_path / "01-30.png"
+    img.write_bytes(b"\x89PNG")
+    shot = {"path": img, "seconds": 90.0, "label": "1m 30s", "context": "click the button"}
+    mock_client = MagicMock()
+    mock_stream = MagicMock()
+    mock_stream.__enter__ = MagicMock(return_value=mock_stream)
+    mock_stream.__exit__ = MagicMock(return_value=False)
+    mock_stream.text_stream = iter(["# Title"])
+    mock_client.messages.stream.return_value = mock_stream
+    with patch("video_to_tutorial.anthropic.Anthropic", return_value=mock_client):
+        generate_tutorial("full transcript", [], paired_screenshots=[shot])
+    call_content = mock_client.messages.stream.call_args[1]["messages"][0]["content"]
+    assert call_content[0]["type"] == "text"
+    assert "1m 30s" in call_content[0]["text"]
+    assert "click the button" in call_content[0]["text"]
+    assert call_content[1]["type"] == "image"
+    assert call_content[1]["source"]["media_type"] == "image/png"
+    final_text = call_content[-1]["text"]
+    assert "full transcript" in final_text
+    assert "paired with the spoken audio" in final_text
+
+
+def test_generate_tutorial_with_paired_screenshots_none_uses_existing_path():
+    from video_to_tutorial import generate_tutorial
+    mock_client = MagicMock()
+    mock_stream = MagicMock()
+    mock_stream.__enter__ = MagicMock(return_value=mock_stream)
+    mock_stream.__exit__ = MagicMock(return_value=False)
+    mock_stream.text_stream = iter(["# Title"])
+    mock_client.messages.stream.return_value = mock_stream
+    with patch("video_to_tutorial.anthropic.Anthropic", return_value=mock_client):
+        generate_tutorial("transcript", [], paired_screenshots=None)
+    call_content = mock_client.messages.stream.call_args[1]["messages"][0]["content"]
+    final_text = call_content[-1]["text"]
+    assert "frames captured every 5 seconds" in final_text
+
+
 def test_generate_tutorial_returns_string():
     from video_to_tutorial import generate_tutorial
     mock_client = MagicMock()

@@ -134,23 +134,64 @@ def encode_frames(frame_files: list[Path]) -> list[dict]:
     return blocks
 
 
-def generate_tutorial(transcript: str, image_blocks: list[dict], segments: list[dict] | None = None) -> str:
+def _image_block_from_path(path: Path) -> dict:
+    ext = path.suffix.lower()
+    media_type = "image/png" if ext == ".png" else "image/jpeg"
+    try:
+        data = base64.standard_b64encode(path.read_bytes()).decode("utf-8")
+    except OSError as e:
+        raise RuntimeError(f"Could not read screenshot '{path}': {e}")
+    return {"type": "image", "source": {"type": "base64", "media_type": media_type, "data": data}}
+
+
+def generate_tutorial(
+    transcript: str,
+    image_blocks: list[dict],
+    segments: list[dict] | None = None,
+    paired_screenshots: list[dict] | None = None,
+) -> str:
     client = anthropic.Anthropic()
-    prompt_text = (
-        f"Below are frames captured every 5 seconds from a video, followed by the "
-        f"full audio transcript.\n\n"
-        f"**Transcript:**\n{transcript}\n\n"
-        f"Using the visual frames and the transcript above, write a detailed "
-        f"step-by-step tutorial in Markdown format. The tutorial should:\n"
-        f"- Start with a clear `# Title`\n"
-        f"- Include a short introduction explaining what the viewer will learn\n"
-        f"- List any prerequisites or tools needed\n"
-        f"- Number every step clearly and describe what is shown on screen\n"
-        f"- Reference relevant frames where helpful (e.g., 'As shown at ~10s...')\n"
-        f"- Highlight important tips, warnings, or common mistakes\n"
-        f"- End with a brief summary or next steps"
-    )
-    content = image_blocks + [{"type": "text", "text": prompt_text}]
+
+    if paired_screenshots is not None:
+        content: list[dict] = []
+        for shot in paired_screenshots:
+            content.append({
+                "type": "text",
+                "text": f'Screenshot at {shot["label"]} — what was being said: "{shot["context"]}"',
+            })
+            content.append(_image_block_from_path(shot["path"]))
+        prompt_text = (
+            f"Above are screenshots paired with the spoken audio at each moment.\n\n"
+            f"**Full transcript for reference:**\n{transcript}\n\n"
+            f"Using the screenshots and their paired spoken context above, write a detailed "
+            f"step-by-step tutorial in Markdown format. Each image is paired with what was "
+            f"being said at that moment — use both the visual and the spoken context together "
+            f"when writing each step. The tutorial should:\n"
+            f"- Start with a clear `# Title`\n"
+            f"- Include a short introduction explaining what the viewer will learn\n"
+            f"- List any prerequisites or tools needed\n"
+            f"- Number every step clearly, describing what is shown and what was being said\n"
+            f"- Highlight important tips, warnings, or common mistakes\n"
+            f"- End with a brief summary or next steps"
+        )
+        content.append({"type": "text", "text": prompt_text})
+    else:
+        prompt_text = (
+            f"Below are frames captured every 5 seconds from a video, followed by the "
+            f"full audio transcript.\n\n"
+            f"**Transcript:**\n{transcript}\n\n"
+            f"Using the visual frames and the transcript above, write a detailed "
+            f"step-by-step tutorial in Markdown format. The tutorial should:\n"
+            f"- Start with a clear `# Title`\n"
+            f"- Include a short introduction explaining what the viewer will learn\n"
+            f"- List any prerequisites or tools needed\n"
+            f"- Number every step clearly and describe what is shown on screen\n"
+            f"- Reference relevant frames where helpful (e.g., 'As shown at ~10s...')\n"
+            f"- Highlight important tips, warnings, or common mistakes\n"
+            f"- End with a brief summary or next steps"
+        )
+        content = image_blocks + [{"type": "text", "text": prompt_text}]
+
     parts: list[str] = []
     with client.messages.stream(
         model="claude-sonnet-4-5",
