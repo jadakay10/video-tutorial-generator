@@ -1,3 +1,4 @@
+import argparse
 import sys
 import os
 import re
@@ -204,40 +205,68 @@ def generate_tutorial(
 
 
 def main() -> None:
-    if len(sys.argv) < 2:
-        print("Usage: python video_to_tutorial.py <video.mp4>")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(
+        description="Generate a step-by-step tutorial from an .mp4 video."
+    )
+    parser.add_argument("video", type=Path, help="Path to the .mp4 video file")
+    parser.add_argument(
+        "--screenshots",
+        action="store_true",
+        help="Use screenshots/ folder next to the video instead of auto-extracting frames",
+    )
+    args = parser.parse_args()
 
-    video_path = Path(sys.argv[1])
+    video_path: Path = args.video
     if not video_path.exists():
         print(f"Error: '{video_path}' does not exist.")
         sys.exit(1)
 
     video_stem = video_path.stem
     audio_path = video_path.parent / f"{video_stem}.mp3"
-    frames_dir = video_path.parent / f"{video_stem}_frames"
     output_path = Path(f"{video_stem}.md")
 
     print(f"[1/5] Extracting audio from '{video_path.name}'...")
     extract_audio(video_path, audio_path)
     print(f"      Audio saved to '{audio_path.name}'.")
 
-    print("[2/5] Extracting one frame every 5 seconds...")
-    frame_files = extract_frames(video_path, frames_dir)
-    print(f"      Extracted {len(frame_files)} frames into '{frames_dir}/'.")
+    paired_screenshots = None
+    image_blocks: list[dict] = []
 
-    print("[3/5] Transcribing audio with Whisper (base model)...")
-    transcript, segments = transcribe_audio(audio_path)
-    print(f"      Transcription complete ({len(transcript)} characters, {len(segments)} segments).")
+    if args.screenshots:
+        screenshots_dir = video_path.parent / "screenshots"
+        if not screenshots_dir.exists():
+            print(f"Error: screenshots/ folder not found at '{screenshots_dir}'.")
+            sys.exit(1)
+        print(f"[2/5] Loading screenshots from '{screenshots_dir}/'...")
+        shots = load_screenshots(screenshots_dir)
+        print(f"      Loaded {len(shots)} screenshot(s).")
 
-    frame_files = sample_frames(frame_files)
-    print(f"[4/5] Encoding {len(frame_files)} frames for the API...")
-    image_blocks = encode_frames(frame_files)
-    print("      Frames encoded.")
+        print("[3/5] Transcribing audio with Whisper (base model)...")
+        transcript, segments = transcribe_audio(audio_path)
+        print(f"      Transcription complete ({len(transcript)} characters, {len(segments)} segments).")
+
+        print("[4/5] Matching screenshots to transcript segments...")
+        paired_screenshots = match_screenshots_to_transcript(shots, segments)
+        matched = sum(1 for s in paired_screenshots if s["context"] != "(no spoken audio at this moment)")
+        print(f"      {matched}/{len(paired_screenshots)} screenshot(s) matched to spoken audio.")
+    else:
+        frames_dir = video_path.parent / f"{video_stem}_frames"
+        print("[2/5] Extracting one frame every 5 seconds...")
+        frame_files = extract_frames(video_path, frames_dir)
+        print(f"      Extracted {len(frame_files)} frames into '{frames_dir}/'.")
+
+        print("[3/5] Transcribing audio with Whisper (base model)...")
+        transcript, segments = transcribe_audio(audio_path)
+        print(f"      Transcription complete ({len(transcript)} characters, {len(segments)} segments).")
+
+        frame_files = sample_frames(frame_files)
+        print(f"[4/5] Encoding {len(frame_files)} frames for the API...")
+        image_blocks = encode_frames(frame_files)
+        print("      Frames encoded.")
 
     print("[5/5] Sending to Claude to generate tutorial (streaming)...\n")
     print("─" * 60)
-    tutorial = generate_tutorial(transcript, image_blocks, segments)
+    tutorial = generate_tutorial(transcript, image_blocks, segments, paired_screenshots)
     print("\n" + "─" * 60)
 
     if not tutorial.strip():

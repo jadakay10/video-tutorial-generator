@@ -204,6 +204,53 @@ def test_generate_tutorial_with_paired_screenshots_none_uses_existing_path():
     assert "frames captured every 5 seconds" in final_text
 
 
+def test_main_without_screenshots_runs_auto_extraction(tmp_path):
+    from unittest.mock import call
+    video = tmp_path / "demo.mp4"
+    video.write_bytes(b"fake")
+    with patch("video_to_tutorial.extract_audio"), \
+         patch("video_to_tutorial.extract_frames", return_value=[]) as mock_extract, \
+         patch("video_to_tutorial.transcribe_audio", return_value=("text", [])), \
+         patch("video_to_tutorial.sample_frames", return_value=[]), \
+         patch("video_to_tutorial.encode_frames", return_value=[]), \
+         patch("video_to_tutorial.generate_tutorial", return_value="# T"), \
+         patch("sys.argv", ["video_to_tutorial.py", str(video)]):
+        from video_to_tutorial import main
+        main()
+    mock_extract.assert_called_once()
+
+
+def test_main_with_screenshots_skips_extraction_and_pairs(tmp_path):
+    video = tmp_path / "demo.mp4"
+    video.write_bytes(b"fake")
+    screenshots_dir = tmp_path / "screenshots"
+    screenshots_dir.mkdir()
+    (screenshots_dir / "01-00.png").write_bytes(b"fake")
+    fake_shots = [{"path": screenshots_dir / "01-00.png", "seconds": 60.0, "label": "1m 0s"}]
+    fake_paired = [{"path": screenshots_dir / "01-00.png", "seconds": 60.0, "label": "1m 0s", "context": "hello"}]
+    with patch("video_to_tutorial.extract_audio"), \
+         patch("video_to_tutorial.extract_frames") as mock_extract, \
+         patch("video_to_tutorial.load_screenshots", return_value=fake_shots), \
+         patch("video_to_tutorial.transcribe_audio", return_value=("text", [])), \
+         patch("video_to_tutorial.match_screenshots_to_transcript", return_value=fake_paired), \
+         patch("video_to_tutorial.generate_tutorial", return_value="# T") as mock_gen, \
+         patch("sys.argv", ["video_to_tutorial.py", str(video), "--screenshots"]):
+        from video_to_tutorial import main
+        main()
+    mock_extract.assert_not_called()
+    assert mock_gen.call_args[0][3] == fake_paired
+
+
+def test_main_with_screenshots_errors_if_folder_missing(tmp_path):
+    video = tmp_path / "demo.mp4"
+    video.write_bytes(b"fake")
+    with patch("video_to_tutorial.extract_audio"), \
+         patch("sys.argv", ["video_to_tutorial.py", str(video), "--screenshots"]):
+        from video_to_tutorial import main
+        with pytest.raises(SystemExit):
+            main()
+
+
 def test_generate_tutorial_returns_string():
     from video_to_tutorial import generate_tutorial
     mock_client = MagicMock()
