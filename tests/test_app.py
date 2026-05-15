@@ -75,3 +75,77 @@ def test_upload_accepts_screenshots(client, tmp_path):
 def test_progress_returns_404_for_unknown_job(client):
     response = client.get("/progress/unknown-job-id")
     assert response.status_code == 404
+
+
+def test_pipeline_emits_skipped_when_screenshots_provided(tmp_path):
+    import queue as queue_module
+    from unittest.mock import patch, MagicMock
+    from pathlib import Path
+
+    # Create a fake screenshot file
+    screenshots_dir = tmp_path / "screenshots"
+    screenshots_dir.mkdir()
+    (screenshots_dir / "01-30.png").write_bytes(b"fake")
+
+    from app import _run_pipeline, _jobs
+    job_id = "test-skip-job"
+    q = queue_module.Queue()
+    _jobs[job_id] = q
+
+    video_path = tmp_path / "demo.mp4"
+    video_path.write_bytes(b"fake")
+
+    fake_frames = [{"path": screenshots_dir / "01-30.png", "seconds": 90.0, "label": "1m 30s"}]
+
+    with patch("app.extract_audio"), \
+         patch("app.load_screenshots", return_value=fake_frames), \
+         patch("app.sample_frames", return_value=[screenshots_dir / "01-30.png"]), \
+         patch("app.encode_frames", return_value=[]), \
+         patch("app.transcribe_audio", return_value=("transcript", [])), \
+         patch("app.generate_tutorial", return_value="# Tutorial"), \
+         patch("app._active_job", [job_id]):
+        _run_pipeline(job_id, video_path, screenshots_dir)
+
+    events = []
+    while not q.empty():
+        events.append(q.get_nowait())
+
+    step2_event = next(e for e in events if e.get("step") == 2)
+    assert step2_event.get("skipped") is True
+    assert step2_event["label"] == "Extracting frames"
+
+    del _jobs[job_id]
+
+
+def test_pipeline_emits_step2_and_calls_extract_frames_when_no_screenshots(tmp_path):
+    import queue as queue_module
+
+    from app import _run_pipeline, _jobs
+    job_id = "test-extract-job"
+    q = queue_module.Queue()
+    _jobs[job_id] = q
+
+    video_path = tmp_path / "demo.mp4"
+    video_path.write_bytes(b"fake")
+
+    fake_frame = tmp_path / "frame_0001.jpg"
+    fake_frame.write_bytes(b"fake")
+
+    with patch("app.extract_audio"), \
+         patch("app.extract_frames", return_value=[fake_frame]) as mock_extract, \
+         patch("app.sample_frames", return_value=[fake_frame]), \
+         patch("app.encode_frames", return_value=[]), \
+         patch("app.transcribe_audio", return_value=("transcript", [])), \
+         patch("app.generate_tutorial", return_value="# Tutorial"), \
+         patch("app._active_job", [job_id]):
+        _run_pipeline(job_id, video_path, screenshots_dir=None)
+
+    events = []
+    while not q.empty():
+        events.append(q.get_nowait())
+
+    step2_event = next(e for e in events if e.get("step") == 2)
+    assert "skipped" not in step2_event
+    mock_extract.assert_called_once()
+
+    del _jobs[job_id]

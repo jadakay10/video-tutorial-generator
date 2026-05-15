@@ -121,7 +121,7 @@ def upload():
     if not file.filename.lower().endswith(".mp4"):
         return jsonify({"error": "Only .mp4 files are supported."}), 400
 
-    screenshot_files = request.files.getlist("screenshots")
+    screenshot_files = [sf for sf in request.files.getlist("screenshots") if sf.filename]
 
     with _lock:
         if _active_job:
@@ -138,9 +138,7 @@ def upload():
             screenshots_dir = job_dir / "screenshots"
             screenshots_dir.mkdir()
             for sf in screenshot_files:
-                name = secure_filename(sf.filename)
-                if name:
-                    sf.save(screenshots_dir / name)
+                sf.save(screenshots_dir / secure_filename(sf.filename))
 
         _jobs[job_id] = queue.Queue()
         _active_job.append(job_id)
