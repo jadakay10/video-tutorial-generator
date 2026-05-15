@@ -30,6 +30,7 @@ frames/
 uploads/
 *.md
 !README.md
+!docs/**/*.md
 
 # Superpowers / brainstorming artifacts
 .superpowers/
